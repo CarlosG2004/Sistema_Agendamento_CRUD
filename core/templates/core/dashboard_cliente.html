@@ -1,0 +1,311 @@
+{% extends "core/base.html" %}
+{% block title %}Dashboard Cliente — AgendaFácil{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .sidebar-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 64px);
+  }
+  .sidebar {
+    background: var(--white);
+    border-right: 1px solid var(--gray-200);
+    padding: 1.5rem 1rem;
+    position: sticky; top: 64px;
+    height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  .sidebar-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-500); padding: .5rem .75rem; margin-top: .5rem; }
+  .sidebar-item {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .6rem .75rem; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: .875rem; font-weight: 500;
+    color: var(--gray-700); transition: all .2s; margin-bottom: 2px;
+    border: none; background: none; width: 100%; text-align: left;
+  }
+  .sidebar-item:hover { background: var(--primary-light); color: var(--primary); }
+  .sidebar-item.active { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+  .sidebar-item .icon { font-size: 1.1rem; }
+  .main-content { padding: 2rem; overflow-y: auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Prestador cards */
+  .prestador-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+  .prestador-card {
+    background: var(--white); border-radius: var(--radius);
+    border: 1px solid var(--gray-200); padding: 1.5rem;
+    box-shadow: var(--shadow-sm); cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .prestador-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .prestador-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .avatar {
+    width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 1.4rem; font-weight: 700;
+  }
+  .prestador-name { font-weight: 700; color: var(--dark); }
+  .prestador-bio { font-size: .8rem; color: var(--gray-500); }
+  .servico-list { margin-top: .5rem; }
+  .servico-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--primary-light); color: var(--primary);
+    border-radius: 20px; padding: .25rem .75rem;
+    font-size: .78rem; font-weight: 600; margin: .2rem .2rem 0 0;
+  }
+  .btn-agendar {
+    display: block; width: 100%; margin-top: 1.25rem;
+    background: var(--primary); color: #fff; border: none;
+    border-radius: var(--radius-sm); padding: .65rem;
+    font-size: .9rem; font-weight: 700; cursor: pointer; transition: all .2s;
+  }
+  .btn-agendar:hover { background: var(--primary-dark); }
+
+  /* Meus agendamentos */
+  .ag-card {
+    background: var(--white); border-radius: var(--radius);
+    border: 1px solid var(--gray-200); padding: 1.25rem;
+    box-shadow: var(--shadow-sm); display: flex;
+    align-items: center; gap: 1rem; margin-bottom: 1rem;
+  }
+  .ag-card .ag-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--primary-light); display: flex;
+    align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+  .ag-card .ag-body { flex: 1; }
+  .ag-card .ag-nome { font-weight: 700; color: var(--dark); }
+  .ag-card .ag-meta { font-size: .82rem; color: var(--gray-500); margin-top: .2rem; }
+  .ag-card .ag-actions { display: flex; gap: .5rem; margin-top: .75rem; }
+
+  @media (max-width: 768px) {
+    .sidebar-layout { grid-template-columns: 1fr; }
+    .sidebar { position: relative; height: auto; display: flex; gap: .25rem; overflow-x: auto; padding: .75rem; border-right: none; border-bottom: 1px solid var(--gray-200); }
+    .sidebar-label { display: none; }
+    .sidebar-item { white-space: nowrap; }
+    .main-content { padding: 1rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sidebar-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Menu</div>
+    <button class="sidebar-item active" onclick="showTab('meus-agendamentos', this)">
+      <span class="icon">📋</span> Meus Agendamentos
+    </button>
+    <button class="sidebar-item" onclick="showTab('buscar', this)">
+      <span class="icon">🔍</span> Buscar Prestadores
+    </button>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+
+    <!-- ── Meus Agendamentos ── -->
+    <div id="tab-meus-agendamentos" class="tab-panel active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Olá, {{ user.first_name|default:user.email }}! 👋</div>
+          <div class="page-subtitle">Seus agendamentos</div>
+        </div>
+        <button class="btn btn-primary" onclick="showTab('buscar', document.querySelectorAll('.sidebar-item')[1])">+ Novo Agendamento</button>
+      </div>
+
+      {% if meus_agendamentos %}
+        {% for ag in meus_agendamentos %}
+        <div class="ag-card" id="ag-{{ ag.id }}">
+          <div class="ag-icon">
+            {% if ag.status == 'pendente' %}⏳
+            {% elif ag.status == 'confirmado' %}✅
+            {% else %}❌{% endif %}
+          </div>
+          <div class="ag-body">
+            <div class="ag-nome">{{ ag.servico.nome }}</div>
+            <div class="ag-meta">
+              🧑‍💼 {{ ag.servico.prestador.get_full_name|default:ag.servico.prestador.email }}
+              &nbsp;·&nbsp; 📅 {{ ag.data_hora|date:"d/m/Y" }}
+              &nbsp;·&nbsp; 🕐 {{ ag.data_hora|date:"H:i" }}
+            </div>
+            <div class="ag-actions">
+              <span class="badge badge-{{ ag.status }}">{{ ag.get_status_display }}</span>
+              {% if ag.status == 'pendente' %}
+              <button class="btn btn-danger btn-sm" onclick="cancelarAgendamento({{ ag.id }})">Cancelar</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">📅</div>
+          <p>Você ainda não tem agendamentos.<br>
+          <button class="btn btn-primary" style="margin-top:1rem;" onclick="showTab('buscar', document.querySelectorAll('.sidebar-item')[1])">Agendar agora</button>
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Buscar Prestadores ── -->
+    <div id="tab-buscar" class="tab-panel">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🔍 Encontrar Prestadores</div>
+          <div class="page-subtitle">Escolha um prestador e agende seu horário</div>
+        </div>
+      </div>
+
+      <div class="prestador-grid">
+        {% for p in prestadores %}
+        <div class="prestador-card" onclick="selecionarPrestador({{ p.id }}, '{{ p.get_full_name|default:p.email|escapejs }}')">
+          <div class="prestador-header">
+            <div class="avatar">{{ p.first_name|first|upper|default:"P" }}</div>
+            <div>
+              <div class="prestador-name">{{ p.get_full_name|default:p.email }}</div>
+              <div class="prestador-bio">{{ p.bio|default:"Prestador de serviços"|truncatechars:50 }}</div>
+            </div>
+          </div>
+          <div class="servico-list">
+            {% for s in p.servicos.all %}
+            {% if s.ativo %}
+            <span class="servico-chip">{{ s.nome }} — R$ {{ s.preco }}</span>
+            {% endif %}
+            {% endfor %}
+          </div>
+          <button class="btn-agendar">📅 Ver serviços e agendar</button>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="grid-column:1/-1;">
+          <div class="empty-icon">🔍</div>
+          <p>Nenhum prestador cadastrado ainda.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal: Criar Agendamento -->
+<div class="modal-overlay" id="modal-agendamento">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-title">📅 Novo Agendamento</div>
+    <input type="hidden" id="ag-prestador-id" value="">
+
+    <div class="form-group">
+      <label class="form-label">Prestador</label>
+      <input type="text" id="ag-prestador-nome" class="form-control" readonly style="background:var(--gray-100);">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Serviço *</label>
+      <select id="ag-servico" class="form-control">
+        <option value="">Carregando serviços…</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data *</label>
+        <input type="date" id="ag-data" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horário *</label>
+        <input type="time" id="ag-hora" class="form-control">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Observação (opcional)</label>
+      <input type="text" id="ag-obs" class="form-control" placeholder="Alguma informação extra?">
+    </div>
+
+    <div id="ag-alert" style="margin-top:.5rem;"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-agendamento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="criarAgendamento()">Confirmar Agendamento</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showTab(tabId, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+async function selecionarPrestador(prestadorId, nome) {
+  document.getElementById('ag-prestador-id').value = prestadorId;
+  document.getElementById('ag-prestador-nome').value = nome;
+  document.getElementById('ag-servico').innerHTML = '<option value="">Carregando…</option>';
+
+  // Definir data mínima = hoje
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('ag-data').min = hoje;
+  document.getElementById('ag-data').value = hoje;
+
+  openModal('modal-agendamento');
+
+  const { ok, data } = await apiCall(`/api/prestadores/${prestadorId}/servicos/`);
+  const select = document.getElementById('ag-servico');
+  if (ok && data.servicos.length > 0) {
+    select.innerHTML = data.servicos.map(s =>
+      `<option value="${s.id}">${s.nome} — ${s.duracao_minutos}min — R$ ${s.preco}</option>`
+    ).join('');
+  } else {
+    select.innerHTML = '<option value="">Nenhum serviço disponível</option>';
+  }
+}
+
+async function criarAgendamento() {
+  const servico_id = document.getElementById('ag-servico').value;
+  const data       = document.getElementById('ag-data').value;
+  const hora       = document.getElementById('ag-hora').value;
+  const obs        = document.getElementById('ag-obs').value;
+  const alertEl    = document.getElementById('ag-alert');
+
+  if (!servico_id || !data || !hora) {
+    alertEl.innerHTML = '<div class="alert alert-error">Preencha serviço, data e horário.</div>';
+    return;
+  }
+
+  const data_hora = `${data} ${hora}`;
+  const { ok, data: resp } = await apiCall('/api/agendamentos/criar/', 'POST', {
+    servico_id: parseInt(servico_id),
+    data_hora,
+    observacao: obs,
+  });
+
+  if (ok) {
+    showToast('Agendamento criado com sucesso!');
+    closeModal('modal-agendamento');
+    setTimeout(() => location.reload(), 900);
+  } else {
+    alertEl.innerHTML = `<div class="alert alert-error">${resp.erro || 'Erro ao criar agendamento.'}</div>`;
+  }
+}
+
+async function cancelarAgendamento(id) {
+  if (!confirm('Cancelar este agendamento?')) return;
+  const { ok, data } = await apiCall(`/api/agendamentos/${id}/acao/`, 'PATCH', { acao: 'cancelar' });
+  if (ok) {
+    showToast('Agendamento cancelado.');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast(data.erro || 'Erro ao cancelar.', 'error');
+  }
+}
+</script>
+{% endblock %}
