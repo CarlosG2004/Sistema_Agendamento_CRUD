@@ -1,7 +1,9 @@
 [project]
 name = "agendamento"
 version = "0.1.0"
-description = "Add your description here"
+description = "Plataforma de agendamento de serviços"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "Django==4.2.13",
+]
